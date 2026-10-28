@@ -1,6 +1,6 @@
 # RC_TTL_MP
 A Version of the RC1 that is not only TTL but also Multi Processor
-Its basicly a version of [this]{https://github.com/Syntaxer04/RC1Computer} Computer, but with a few changes.
+Its basicly a version of [this](https://github.com/Syntaxer04/RC1Computer) Computer, but with a few changes.
 
 # THE CHANGES:
 1. First thing is that this version has a lot of... featuer creep
