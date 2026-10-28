@@ -1,0 +1,191 @@
+; Registers for load 
+#ruledef registerl  { 
+	a => 0x0 
+	b => 0x1 
+	c => 0x2 
+	d => 0x3 
+ } 
+; Registers for save 
+#ruledef registers  { 
+	a => 0x8 
+	b => 0x9 
+	c => 0xa 
+	d => 0xb 
+ } 
+; Registers for add 
+#ruledef add_regs  { 
+	a => 0x1 
+	d => 0x9 
+ } 
+; Registers for and 
+#ruledef and_regs  { 
+	a => 0x3 
+	d => 0xb 
+ } 
+; Registers for inc 
+#ruledef inc_regs  { 
+	a => 0x2 
+	d => 0xa 
+ } 
+; Registers for or 
+#ruledef or_regs  { 
+	a => 0x4 
+	d => 0xc 
+ } 
+; Registers for xor 
+#ruledef xor_regs  { 
+	a => 0x5 
+	d => 0xd 
+ } 
+; Registers for not 
+#ruledef not_regs  { 
+	a => 0x6 
+	d => 0xe 
+ } 
+; Registers for shl 
+#ruledef shl_regs  { 
+	a => 0x7 
+	d => 0xf 
+ } 
+; Registers for out 
+#ruledef out_reg  { 
+	a => 0x5 
+	d => 0x6 
+ } 
+ 
+#ruledef 
+ { 
+;Memory access functions 
+	set  {value: u16 } => 0xc0 @ value[7:0] @ value [15:8] 
+	load  {r: registerl } => 0x9 @ r 
+	store  {r: registers } => 0x9 @ r 
+;ALU Functions 
+	add  {r: add_regs } => 0x8 @ r 
+	and  {r: and_regs } => 0x8 @ r 
+	inc  {r: inc_regs } => 0x8 @ r 
+	or  {r: or_regs } => 0x8 @ r 
+	xor  {r: xor_regs } => 0x8 @ r 
+	not  {r: not_regs } => 0x8 @ r 
+	shl  {r: shl_regs } => 0x8 @ r 
+; Pointer modification functions 
+; There are two different registers to use for a jump/goto: M register and J register 
+; This has a few benefits, but the most interesting is:  
+; One doesnt affect the other, which is to be expected 
+; AND since loads, stores and sets are executed over the M register, using the J register for jumps wont affect the load/store/set location 
+; I will only include the J register jumps, but if anyone wants to use the M register jumps, replace the e2/e8 with c2/c8 
+	jmp_m {value: u16 } => 0xc1 @ value[7:0] @ value [15:8]	 ; Jump unconditionally ( should not, but until its finished I misuse it as that )
+	jnz_m  {value: u16 } => 0xc2 @ value[7:0] @ value [15:8] ; Jump if Zero is NOT set
+	jz_m {value: u16 } => 0xc4 @ value[7:0] @ value [15:8]	 ; Jump if Zero IS set
+	jc_m  {value: u16 } => 0xc8 @ value[7:0] @ value [15:8] ; Jump if Carry is set
+	js_m {value: u16 } => 0xd0 @ value[7:0] @ value [15:8]	 ; Jump if Sign is set 
+	jmp_j {value: u16 } => 0xe1 @ value[7:0] @ value [15:8]	 ; Jump unconditionally ( should not, but until its finished I misuse it as that )
+	jnz_j  {value: u16 } => 0xe2 @ value[7:0] @ value [15:8] ; Jump if Zero is NOT set
+	jz_j {value: u16 } => 0xe4 @ value[7:0] @ value [15:8]	 ; Jump if Zero IS set
+	jc_j  {value: u16 } => 0xe8 @ value[7:0] @ value [15:8] ; Jump if Carry is set
+	js_j {value: u16 } => 0xf0 @ value[7:0] @ value [15:8] ; Jump if Sign is set
+; Register modification functions 
+; Registers B and C are directly attached to the ALU, making their output unaccessible to the normal data bus. 
+	mov a,b => 0x01 
+	mov a,c => 0x02 
+	mov a,d => 0x03 
+	mov d,a => 0x30 
+	mov d,b => 0x31 
+	mov d,c => 0x32 
+	del a => 0x00 
+	del b => 0x09 
+	del c => 0x12 
+	del d => 0x1b 
+; Output function 
+; I haven 'b4t fully decided yet how the output is handled.  
+; I want it to be a multiporpuse Output, serving as GPIO and a serial connection to the computer 
+; The Out part of GPIO was pretty straight forward, but the in could be a problem 
+; It would be best if it were just a seperate 8 Bit register, that a user can read/write to. 
+	out  {r:out_reg } => 0x9 @ r
+; Misc functions
+; NOW were in some deep bs. Fork is the command to tell the first CPU that it should tell the Arbiter to turn on the Second CPU.
+; The Second CPU gets its starting adress from the firsts CPUs M Register. It then gets, together with the first CPU, managed by the Arbiter so that both run at the same time.
+; The main appeal of this design is that both CPUs run basically indepedent of one another.
+; The only minor issue is that the CPUs share memory, but not the Registers. This means that they can intersect in main memory, but run their calculations independently.
+	fork => 0x9f
+ } 
+
+main:
+    set 0x0100
+    fork
+
+cpu_a_loop:
+    set fib_a_curr
+    load b
+
+    set fib_a_prev
+    load c
+
+    add a
+
+    set fib_a_tmp
+    store a
+
+    set fib_a_curr
+    load a
+
+    set fib_a_prev
+    store a
+
+    set fib_a_tmp
+    load a
+
+    set fib_a_curr
+    store a
+
+    jmp_j cpu_a_loop
+
+
+#addr 0x0100
+
+cpu_b_loop:
+    set fib_b_curr
+    load b
+
+    set fib_b_prev
+    load c
+
+    add a
+
+    set fib_b_tmp
+    store a
+
+    set fib_b_curr
+    load a
+
+    set fib_b_prev
+    store a
+
+    set fib_b_tmp
+    load a
+
+    set fib_b_curr
+    store a
+
+    jmp_j cpu_b_loop
+
+
+#addr 0x0200
+
+fib_a_prev:
+    #d 0x00
+
+fib_a_curr:
+    #d 0x01
+
+fib_a_tmp:
+    #d 0x00
+
+
+fib_b_prev:
+    #d 0x0d
+
+fib_b_curr:
+    #d 0x15
+
+fib_b_tmp:
+    #d 0x00
